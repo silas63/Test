@@ -1,456 +1,466 @@
-import tkinter as tk
-import math
+import streamlit as st
+import streamlit.components.v1 as components
 
 # ============================================================
-# Apple-inspirierter Taschenrechner
+# STREAMLIT APP
 # ============================================================
 
-class Calculator:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Taschenrechner")
-        self.root.geometry("380x620")
-        self.root.resizable(False, False)
-        self.root.configure(bg="#000000")
+st.set_page_config(
+    page_title="Taschenrechner",
+    page_icon="🧮",
+    layout="centered"
+)
 
-        self.current = "0"
-        self.previous = None
-        self.operator = None
-        self.reset_next = False
+# ============================================================
+# SESSION STATE
+# ============================================================
 
-        # ----------------------------------------------------
-        # Display
-        # ----------------------------------------------------
-        self.display = tk.Label(
-            root,
-            text="0",
-            bg="#000000",
-            fg="white",
-            font=("Helvetica", 48),
-            anchor="e",
-            padx=20
-        )
-        self.display.pack(
-            fill="both",
-            expand=True,
-            pady=(20, 10)
-        )
+if "display" not in st.session_state:
+    st.session_state.display = "0"
 
-        # ----------------------------------------------------
-        # Button-Bereich
-        # ----------------------------------------------------
-        button_frame = tk.Frame(
-            root,
-            bg="#000000"
-        )
-        button_frame.pack(
-            fill="both",
-            expand=True,
-            padx=10,
-            pady=10
-        )
+if "first_number" not in st.session_state:
+    st.session_state.first_number = None
 
-        # Button-Farben
-        number_color = "#333333"
-        number_pressed = "#555555"
+if "operator" not in st.session_state:
+    st.session_state.operator = None
 
-        function_color = "#A5A5A5"
-        function_pressed = "#D0D0D0"
+if "new_number" not in st.session_state:
+    st.session_state.new_number = False
 
-        operator_color = "#FF9500"
-        operator_pressed = "#FFB340"
 
-        text_dark = "#000000"
-        text_light = "#FFFFFF"
+# ============================================================
+# FUNKTIONEN
+# ============================================================
 
-        # ----------------------------------------------------
-        # Button-Konfiguration
-        # ----------------------------------------------------
-        buttons = [
-            ("AC", 0, 0, function_color, function_pressed, text_dark),
-            ("+/-", 0, 1, function_color, function_pressed, text_dark),
-            ("%", 0, 2, function_color, function_pressed, text_dark),
-            ("÷", 0, 3, operator_color, operator_pressed, text_light),
+def haptic():
+    """
+    Web-Haptik über die Browser Vibration API.
+    Funktioniert nur auf unterstützten Geräten/Browsers.
+    """
 
-            ("7", 1, 0, number_color, number_pressed, text_light),
-            ("8", 1, 1, number_color, number_pressed, text_light),
-            ("9", 1, 2, number_color, number_pressed, text_light),
-            ("×", 1, 3, operator_color, operator_pressed, text_light),
-
-            ("4", 2, 0, number_color, number_pressed, text_light),
-            ("5", 2, 1, number_color, number_pressed, text_light),
-            ("6", 2, 2, number_color, number_pressed, text_light),
-            ("−", 2, 3, operator_color, operator_pressed, text_light),
-
-            ("1", 3, 0, number_color, number_pressed, text_light),
-            ("2", 3, 1, number_color, number_pressed, text_light),
-            ("3", 3, 2, number_color, number_pressed, text_light),
-            ("+", 3, 3, operator_color, operator_pressed, text_light),
-
-            ("0", 4, 0, number_color, number_pressed, text_light),
-            (",", 4, 2, number_color, number_pressed, text_light),
-            ("=", 4, 3, operator_color, operator_pressed, text_light),
-        ]
-
-        self.buttons = {}
-
-        # ----------------------------------------------------
-        # Buttons erstellen
-        # ----------------------------------------------------
-        for text, row, col, bg, pressed_bg, fg in buttons:
-
-            # 0 soll über zwei Spalten gehen
-            if text == "0":
-                button = tk.Button(
-                    button_frame,
-                    text=text,
-                    font=("Helvetica", 26),
-                    bg=bg,
-                    fg=fg,
-                    activebackground=pressed_bg,
-                    activeforeground=fg,
-                    bd=0,
-                    relief="flat",
-                    command=lambda t=text: self.button_pressed(t)
-                )
-
-                button.grid(
-                    row=row,
-                    column=0,
-                    columnspan=2,
-                    sticky="nsew",
-                    padx=5,
-                    pady=5
-                )
-
-            else:
-                button = tk.Button(
-                    button_frame,
-                    text=text,
-                    font=("Helvetica", 26),
-                    bg=bg,
-                    fg=fg,
-                    activebackground=pressed_bg,
-                    activeforeground=fg,
-                    bd=0,
-                    relief="flat",
-                    command=lambda t=text: self.button_pressed(t)
-                )
-
-                button.grid(
-                    row=row,
-                    column=col,
-                    sticky="nsew",
-                    padx=5,
-                    pady=5
-                )
-
-            self.buttons[text] = button
-
-        # Leere Position in der letzten Reihe
-        empty = tk.Label(
-            button_frame,
-            bg="#000000"
-        )
-        empty.grid(row=4, column=1)
-
-        # ----------------------------------------------------
-        # Gleichmäßige Größen
-        # ----------------------------------------------------
-        for row in range(5):
-            button_frame.rowconfigure(row, weight=1)
-
-        for col in range(4):
-            button_frame.columnconfigure(col, weight=1)
-
-        # Tastatursteuerung
-        root.bind("<Key>", self.keyboard_input)
-
-    # ========================================================
-    # Button-Effekt
-    # ========================================================
-
-    def haptic_feedback(self, button):
+    components.html(
         """
-        Simuliert haptisches Feedback.
-        Auf einem normalen PC gibt es keine echte iPhone-Haptik,
-        deshalb wird die Taste kurz optisch verändert.
-        """
+        <script>
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
+        </script>
+        """,
+        height=0
+    )
 
-        original = button.cget("bg")
 
-        if original == "#333333":
-            pressed = "#555555"
-        elif original == "#FF9500":
-            pressed = "#FFB340"
-        else:
-            pressed = "#D0D0D0"
+def enter_number(number):
+    haptic()
 
-        button.config(bg=pressed)
+    if st.session_state.new_number:
+        st.session_state.display = number
+        st.session_state.new_number = False
 
-        self.root.after(
-            80,
-            lambda: button.config(bg=original)
+    elif st.session_state.display == "0":
+        st.session_state.display = number
+
+    else:
+        st.session_state.display += number
+
+
+def enter_decimal():
+    haptic()
+
+    if st.session_state.new_number:
+        st.session_state.display = "0,"
+        st.session_state.new_number = False
+
+    elif "," not in st.session_state.display:
+        st.session_state.display += ","
+
+
+def choose_operator(operator):
+    haptic()
+
+    try:
+        number = float(
+            st.session_state.display.replace(",", ".")
         )
 
-        # System-Beep als zusätzliche Rückmeldung
-        try:
-            self.root.bell()
-        except:
-            pass
+        # Falls bereits eine Operation läuft
+        if (
+            st.session_state.first_number is not None
+            and st.session_state.operator is not None
+            and not st.session_state.new_number
+        ):
+            calculate()
 
-    # ========================================================
-    # Button verarbeitet
-    # ========================================================
+            number = float(
+                st.session_state.display.replace(",", ".")
+            )
 
-    def button_pressed(self, value):
+        st.session_state.first_number = number
+        st.session_state.operator = operator
+        st.session_state.new_number = True
 
-        # Haptik
-        if value in self.buttons:
-            self.haptic_feedback(self.buttons[value])
+    except ValueError:
+        st.session_state.display = "Fehler"
 
-        # Zahlen
-        if value.isdigit():
-            self.enter_number(value)
 
-        elif value == ",":
-            self.enter_decimal()
+def calculate():
+    haptic()
 
-        elif value in ["+", "−", "×", "÷"]:
-            self.choose_operator(value)
+    if (
+        st.session_state.first_number is None
+        or st.session_state.operator is None
+    ):
+        return
 
-        elif value == "=":
-            self.calculate()
+    try:
+        second_number = float(
+            st.session_state.display.replace(",", ".")
+        )
 
-        elif value == "AC":
-            self.clear()
+        first_number = st.session_state.first_number
+        operator = st.session_state.operator
 
-        elif value == "+/-":
-            self.change_sign()
+        if operator == "+":
+            result = first_number + second_number
 
-        elif value == "%":
-            self.percent()
+        elif operator == "−":
+            result = first_number - second_number
 
-    # ========================================================
-    # Zahl eingeben
-    # ========================================================
+        elif operator == "×":
+            result = first_number * second_number
 
-    def enter_number(self, number):
+        elif operator == "÷":
 
-        if self.reset_next:
-            self.current = number
-            self.reset_next = False
+            if second_number == 0:
+                st.session_state.display = "Fehler"
+                reset_calculator()
+                return
 
-        elif self.current == "0":
-            self.current = number
+            result = first_number / second_number
 
         else:
-            self.current += number
-
-        self.update_display()
-
-    # ========================================================
-    # Komma
-    # ========================================================
-
-    def enter_decimal(self):
-
-        if self.reset_next:
-            self.current = "0,"
-            self.reset_next = False
-
-        elif "," not in self.current:
-            self.current += ","
-
-        self.update_display()
-
-    # ========================================================
-    # Operator auswählen
-    # ========================================================
-
-    def choose_operator(self, operator):
-
-        if self.previous is not None and self.operator and not self.reset_next:
-            self.calculate()
-
-        self.previous = self.to_number(self.current)
-        self.operator = operator
-        self.reset_next = True
-
-    # ========================================================
-    # Berechnung
-    # ========================================================
-
-    def calculate(self):
-
-        if self.previous is None or self.operator is None:
             return
 
-        current_number = self.to_number(self.current)
+        st.session_state.display = format_number(result)
 
-        try:
+        st.session_state.first_number = None
+        st.session_state.operator = None
+        st.session_state.new_number = True
 
-            if self.operator == "+":
-                result = self.previous + current_number
+    except Exception:
+        st.session_state.display = "Fehler"
+        reset_calculator()
 
-            elif self.operator == "−":
-                result = self.previous - current_number
 
-            elif self.operator == "×":
-                result = self.previous * current_number
+def reset_calculator():
+    st.session_state.first_number = None
+    st.session_state.operator = None
+    st.session_state.new_number = True
 
-            elif self.operator == "÷":
-                if current_number == 0:
-                    self.current = "Fehler"
-                    self.previous = None
-                    self.operator = None
-                    self.reset_next = True
-                    self.update_display()
-                    return
 
-                result = self.previous / current_number
+def clear():
+    haptic()
 
-            self.current = self.format_number(result)
+    st.session_state.display = "0"
+    st.session_state.first_number = None
+    st.session_state.operator = None
+    st.session_state.new_number = False
 
-            self.previous = None
-            self.operator = None
-            self.reset_next = True
 
-            self.update_display()
+def change_sign():
+    haptic()
 
-        except Exception:
-            self.current = "Fehler"
-            self.previous = None
-            self.operator = None
-            self.reset_next = True
-            self.update_display()
+    if st.session_state.display == "0":
+        return
 
-    # ========================================================
-    # Alles löschen
-    # ========================================================
-
-    def clear(self):
-
-        self.current = "0"
-        self.previous = None
-        self.operator = None
-        self.reset_next = False
-
-        self.update_display()
-
-    # ========================================================
-    # Vorzeichen ändern
-    # ========================================================
-
-    def change_sign(self):
-
-        if self.current == "0" or self.current == "Fehler":
-            return
-
-        if self.current.startswith("-"):
-            self.current = self.current[1:]
-        else:
-            self.current = "-" + self.current
-
-        self.update_display()
-
-    # ========================================================
-    # Prozent
-    # ========================================================
-
-    def percent(self):
-
-        try:
-            number = self.to_number(self.current)
-            number = number / 100
-
-            self.current = self.format_number(number)
-
-            self.update_display()
-
-        except:
-            self.current = "Fehler"
-            self.update_display()
-
-    # ========================================================
-    # Zahl umwandeln
-    # ========================================================
-
-    def to_number(self, value):
-
-        value = value.replace(",", ".")
-
-        return float(value)
-
-    # ========================================================
-    # Zahl formatieren
-    # ========================================================
-
-    def format_number(self, number):
-
-        if number.is_integer():
-            return str(int(number))
-
-        # Verhindert zu viele Nachkommastellen
-        formatted = f"{number:.10f}".rstrip("0").rstrip(".")
-
-        return formatted.replace(".", ",")
-
-    # ========================================================
-    # Display aktualisieren
-    # ========================================================
-
-    def update_display(self):
-
-        self.display.config(
-            text=self.current
+    if st.session_state.display.startswith("-"):
+        st.session_state.display = (
+            st.session_state.display[1:]
+        )
+    else:
+        st.session_state.display = (
+            "-" + st.session_state.display
         )
 
-    # ========================================================
-    # Tastatur
-    # ========================================================
 
-    def keyboard_input(self, event):
+def percent():
+    haptic()
 
-        key = event.keysym
-        char = event.char
+    try:
+        number = float(
+            st.session_state.display.replace(",", ".")
+        )
 
-        if char.isdigit():
-            self.enter_number(char)
+        number /= 100
 
-        elif char in [".", ","]:
-            self.enter_decimal()
+        st.session_state.display = format_number(number)
 
-        elif char == "+":
-            self.choose_operator("+")
+    except:
+        st.session_state.display = "Fehler"
 
-        elif char == "-":
-            self.choose_operator("−")
 
-        elif char == "*":
-            self.choose_operator("×")
+def format_number(number):
 
-        elif char == "/":
-            self.choose_operator("÷")
+    if number.is_integer():
+        return str(int(number))
 
-        elif char == "%":
-            self.percent()
+    result = f"{number:.10f}".rstrip("0").rstrip(".")
 
-        elif key in ["Return", "KP_Enter"]:
-            self.calculate()
-
-        elif key == "Escape":
-            self.clear()
+    return result.replace(".", ",")
 
 
 # ============================================================
-# Programm starten
+# APPLE-STYLE CSS
 # ============================================================
 
-if __name__ == "__main__":
+st.markdown(
+    """
+    <style>
 
-    root = tk.Tk()
+    /* Gesamte App */
 
-    calculator = Calculator(root)
+    .stApp {
+        background-color: #000000;
+        color: white;
+    }
 
-    root.mainloop()
+    .block-container {
+        max-width: 430px;
+        padding-top: 35px;
+        padding-bottom: 30px;
+    }
+
+
+    /* Display */
+
+    .calculator-display {
+        width: 100%;
+        min-height: 110px;
+
+        display: flex;
+        align-items: end;
+        justify-content: flex-end;
+
+        padding: 15px 20px;
+
+        box-sizing: border-box;
+
+        color: white;
+
+        font-family:
+            -apple-system,
+            BlinkMacSystemFont,
+            "Helvetica Neue",
+            Arial,
+            sans-serif;
+
+        font-size: 64px;
+        font-weight: 300;
+
+        overflow: hidden;
+
+        white-space: nowrap;
+    }
+
+
+    /* Buttons */
+
+    div.stButton > button {
+
+        width: 100%;
+        height: 72px;
+
+        border-radius: 50%;
+
+        border: none;
+
+        font-size: 28px;
+        font-weight: 400;
+
+        transition:
+            transform 0.08s ease,
+            filter 0.08s ease;
+
+        box-shadow: none;
+    }
+
+
+    div.stButton > button:active {
+        transform: scale(0.92);
+        filter: brightness(1.35);
+    }
+
+
+    /* Zahlen */
+
+    div[data-testid="stButton"] button {
+        background-color: #333333;
+        color: white;
+    }
+
+
+    /* Operatoren */
+
+    button[kind="primary"] {
+        background-color: #ff9500 !important;
+        color: white !important;
+    }
+
+
+    /* Funktionsbuttons */
+
+    .function-button button {
+        background-color: #a5a5a5 !important;
+        color: black !important;
+    }
+
+
+    /* Abstand zwischen Buttons */
+
+    div[data-testid="column"] {
+        padding: 4px;
+    }
+
+
+    /* Mobile */
+
+    @media (max-width: 500px) {
+
+        .block-container {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .calculator-display {
+            font-size: 52px;
+        }
+
+        div.stButton > button {
+            height: 68px;
+            font-size: 25px;
+        }
+
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# DISPLAY
+# ============================================================
+
+st.markdown(
+    f"""
+    <div class="calculator-display">
+        {st.session_state.display}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# TASTEN
+# ============================================================
+
+# Zeile 1
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("AC", use_container_width=True):
+        clear()
+
+with col2:
+    if st.button("+/−", use_container_width=True):
+        change_sign()
+
+with col3:
+    if st.button("%", use_container_width=True):
+        percent()
+
+with col4:
+    if st.button("÷", type="primary", use_container_width=True):
+        choose_operator("÷")
+
+
+# Zeile 2
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("7", use_container_width=True):
+        enter_number("7")
+
+with col2:
+    if st.button("8", use_container_width=True):
+        enter_number("8")
+
+with col3:
+    if st.button("9", use_container_width=True):
+        enter_number("9")
+
+with col4:
+    if st.button("×", type="primary", use_container_width=True):
+        choose_operator("×")
+
+
+# Zeile 3
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("4", use_container_width=True):
+        enter_number("4")
+
+with col2:
+    if st.button("5", use_container_width=True):
+        enter_number("5")
+
+with col3:
+    if st.button("6", use_container_width=True):
+        enter_number("6")
+
+with col4:
+    if st.button("−", type="primary", use_container_width=True):
+        choose_operator("−")
+
+
+# Zeile 4
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("1", use_container_width=True):
+        enter_number("1")
+
+with col2:
+    if st.button("2", use_container_width=True):
+        enter_number("2")
+
+with col3:
+    if st.button("3", use_container_width=True):
+        enter_number("3")
+
+with col4:
+    if st.button("+", type="primary", use_container_width=True):
+        choose_operator("+")
+
+
+# Zeile 5
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    # Optischer Platzhalter für die breite 0-Taste
+    if st.button("0", use_container_width=True):
+        enter_number("0")
+
+with col2:
+    if st.button(",", use_container_width=True):
+        enter_decimal()
+
+with col3:
+    pass
+
+with col4:
+    if st.button("=", type="primary", use_container_width=True):
+        calculate()
