@@ -1,159 +1,103 @@
 import streamlit as st
-import streamlit.components.v1 as components
-
 
 # ============================================================
-# SEITENKONFIGURATION
+# APPLE-STYLE TASCHENRECHNER FÜR STREAMLIT
 # ============================================================
 
 st.set_page_config(
-    page_title="Apple Calculator",
+    page_title="Taschenrechner",
     page_icon="🧮",
     layout="centered",
-    initial_sidebar_state="collapsed",
 )
 
-
-# ============================================================
+# ------------------------------------------------------------
 # SESSION STATE
-# ============================================================
+# ------------------------------------------------------------
 
-defaults = {
-    "display": "0",
-    "stored_value": None,
-    "operator": None,
-    "waiting_for_number": False,
-}
+if "display" not in st.session_state:
+    st.session_state.display = "0"
 
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+if "number" not in st.session_state:
+    st.session_state.number = None
 
+if "operator" not in st.session_state:
+    st.session_state.operator = None
 
-# ============================================================
-# HAPTISCHES FEEDBACK
-# ============================================================
-
-def haptic():
-    """
-    Kurze Vibration auf unterstützten Smartphones.
-    """
-
-    components.html(
-        """
-        <script>
-            try {
-                if (navigator.vibrate) {
-                    navigator.vibrate(18);
-                }
-            } catch (e) {}
-        </script>
-        """,
-        height=0,
-    )
+if "new_number" not in st.session_state:
+    st.session_state.new_number = False
 
 
-# ============================================================
-# HILFSFUNKTIONEN
-# ============================================================
+# ------------------------------------------------------------
+# BERECHNUNGEN
+# ------------------------------------------------------------
 
-def get_number():
+def get_value():
     try:
         return float(st.session_state.display.replace(",", "."))
-    except ValueError:
-        return 0.0
+    except:
+        return 0
 
 
-def format_number(value):
-    if value == 0:
-        return "0"
+def format_number(number):
+    if number == int(number):
+        return str(int(number))
 
-    if value.is_integer():
-        return str(int(value))
+    result = f"{number:.10f}".rstrip("0").rstrip(".")
 
-    text = f"{value:.10f}".rstrip("0").rstrip(".")
-
-    return text.replace(".", ",")
+    return result.replace(".", ",")
 
 
-def reset_operation():
-    st.session_state.stored_value = None
-    st.session_state.operator = None
-    st.session_state.waiting_for_number = False
+def number_pressed(value):
 
+    if st.session_state.new_number:
+        st.session_state.display = value
+        st.session_state.new_number = False
 
-# ============================================================
-# ZAHLEN
-# ============================================================
+    elif st.session_state.display == "0":
+        st.session_state.display = value
 
-def press_number(number):
-    haptic()
-
-    if st.session_state.waiting_for_number:
-        st.session_state.display = number
-        st.session_state.waiting_for_number = False
-        return
-
-    if st.session_state.display == "0":
-        st.session_state.display = number
     else:
-        st.session_state.display += number
+        st.session_state.display += value
 
 
-# ============================================================
-# KOMMA
-# ============================================================
+def decimal_pressed():
 
-def press_decimal():
-    haptic()
-
-    if st.session_state.waiting_for_number:
+    if st.session_state.new_number:
         st.session_state.display = "0,"
-        st.session_state.waiting_for_number = False
-        return
+        st.session_state.new_number = False
 
-    if "," not in st.session_state.display:
+    elif "," not in st.session_state.display:
         st.session_state.display += ","
 
 
-# ============================================================
-# OPERATOR
-# ============================================================
+def operator_pressed(operator):
 
-def press_operator(operator):
-    haptic()
-
-    current = get_number()
+    current = get_value()
 
     if (
-        st.session_state.stored_value is not None
+        st.session_state.number is not None
         and st.session_state.operator is not None
-        and not st.session_state.waiting_for_number
+        and not st.session_state.new_number
     ):
         calculate()
 
-        current = get_number()
+        current = get_value()
 
-    st.session_state.stored_value = current
+    st.session_state.number = current
     st.session_state.operator = operator
-    st.session_state.waiting_for_number = True
+    st.session_state.new_number = True
 
-
-# ============================================================
-# BERECHNEN
-# ============================================================
 
 def calculate():
-    haptic()
 
     if (
-        st.session_state.stored_value is None
+        st.session_state.number is None
         or st.session_state.operator is None
     ):
         return
 
-    first = st.session_state.stored_value
-    second = get_number()
+    first = st.session_state.number
+    second = get_value()
     operator = st.session_state.operator
 
     try:
@@ -171,7 +115,7 @@ def calculate():
 
             if second == 0:
                 st.session_state.display = "Fehler"
-                reset_operation()
+                reset()
                 return
 
             result = first / second
@@ -181,105 +125,93 @@ def calculate():
 
         st.session_state.display = format_number(result)
 
-        reset_operation()
+        st.session_state.number = None
+        st.session_state.operator = None
+        st.session_state.new_number = True
 
-        st.session_state.waiting_for_number = True
-
-    except Exception:
+    except:
         st.session_state.display = "Fehler"
-        reset_operation()
+        reset()
 
 
-# ============================================================
-# AC
-# ============================================================
+def reset():
+
+    st.session_state.number = None
+    st.session_state.operator = None
+    st.session_state.new_number = True
+
 
 def clear():
-    haptic()
 
     st.session_state.display = "0"
+    st.session_state.number = None
+    st.session_state.operator = None
+    st.session_state.new_number = False
 
-    reset_operation()
-
-
-# ============================================================
-# VORZEICHEN
-# ============================================================
 
 def change_sign():
-    haptic()
 
     if st.session_state.display == "0":
         return
 
     if st.session_state.display.startswith("-"):
         st.session_state.display = st.session_state.display[1:]
+
     else:
         st.session_state.display = "-" + st.session_state.display
 
 
-# ============================================================
-# PROZENT
-# ============================================================
-
-def percentage():
-    haptic()
+def percent():
 
     try:
-        value = get_number()
-
-        value /= 100
-
+        value = get_value()
+        value = value / 100
         st.session_state.display = format_number(value)
 
-    except Exception:
+    except:
         st.session_state.display = "Fehler"
 
 
 # ============================================================
-# CSS
+# DESIGN
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* ==========================================
-       GESAMTER HINTERGRUND
-       ========================================== */
+    /* ------------------------------------------
+       KOMPLETTER HINTERGRUND
+       ------------------------------------------ */
 
     .stApp {
-        background: #000000;
+        background-color: #000000;
     }
 
     .main .block-container {
         max-width: 430px;
         padding-top: 25px;
         padding-bottom: 40px;
-        padding-left: 12px;
-        padding-right: 12px;
     }
 
 
-    /* ==========================================
+    /* ------------------------------------------
        DISPLAY
-       ========================================== */
+       ------------------------------------------ */
 
-    .calculator-display {
-        width: 100%;
-        height: 135px;
+    .display {
+
+        height: 145px;
 
         display: flex;
+
         align-items: flex-end;
+
         justify-content: flex-end;
 
-        box-sizing: border-box;
+        padding: 10px 20px;
 
-        padding: 10px 18px;
-
-        margin-bottom: 8px;
-
-        color: #ffffff;
+        color: white;
 
         font-family:
             -apple-system,
@@ -296,36 +228,22 @@ st.markdown(
 
         white-space: nowrap;
 
-        letter-spacing: -2px;
+        box-sizing: border-box;
+
     }
 
 
-    /* ==========================================
-       STREAMLIT BUTTONS
-       ========================================== */
-
-    div.stButton {
-        width: 100%;
-    }
+    /* ------------------------------------------
+       ALLE BUTTONS
+       ------------------------------------------ */
 
     div.stButton > button {
 
-        width: 100% !important;
-
         height: 78px !important;
-
-        border: none !important;
 
         border-radius: 50% !important;
 
-        padding: 0 !important;
-
-        font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Helvetica Neue",
-            Arial,
-            sans-serif;
+        border: none !important;
 
         font-size: 27px !important;
 
@@ -335,11 +253,10 @@ st.markdown(
             transform 0.08s ease,
             filter 0.08s ease;
 
-        box-shadow: none !important;
     }
 
 
-    /* Button beim Drücken */
+    /* Button wird beim Drücken kleiner */
 
     div.stButton > button:active {
 
@@ -350,48 +267,35 @@ st.markdown(
     }
 
 
-    /* ==========================================
+    /* ------------------------------------------
        ZAHLEN
-       ========================================== */
+       ------------------------------------------ */
 
     div.stButton > button[kind="secondary"] {
 
         background-color: #333333 !important;
 
-        color: #ffffff !important;
+        color: white !important;
 
     }
 
 
-    /* ==========================================
-       FUNKTIONSTASTEN
-       ========================================== */
-
-    .function button {
-
-        background-color: #A5A5A5 !important;
-
-        color: #000000 !important;
-
-    }
-
-
-    /* ==========================================
-       ORANGE OPERATOR-TASTEN
-       ========================================== */
+    /* ------------------------------------------
+       ORANGE OPERATIONEN
+       ------------------------------------------ */
 
     div.stButton > button[kind="primary"] {
 
-        background-color: #FF9500 !important;
+        background-color: #ff9500 !important;
 
-        color: #ffffff !important;
+        color: white !important;
 
     }
 
 
-    /* ==========================================
+    /* ------------------------------------------
        ABSTÄNDE
-       ========================================== */
+       ------------------------------------------ */
 
     div[data-testid="column"] {
 
@@ -402,9 +306,9 @@ st.markdown(
     }
 
 
-    /* ==========================================
+    /* ------------------------------------------
        MOBILE
-       ========================================== */
+       ------------------------------------------ */
 
     @media (max-width: 500px) {
 
@@ -415,7 +319,7 @@ st.markdown(
 
         }
 
-        .calculator-display {
+        .display {
 
             height: 120px;
 
@@ -445,7 +349,7 @@ st.markdown(
 
 st.markdown(
     f"""
-    <div class="calculator-display">
+    <div class="display">
         {st.session_state.display}
     </div>
     """,
@@ -454,7 +358,7 @@ st.markdown(
 
 
 # ============================================================
-# TASTEN - ZEILE 1
+# TASTEN 1
 # ============================================================
 
 c1, c2, c3, c4 = st.columns(4)
@@ -469,98 +373,97 @@ with c2:
 
 with c3:
     if st.button("%", key="percent", use_container_width=True):
-        percentage()
+        percent()
 
 with c4:
     if st.button("÷", key="divide", type="primary", use_container_width=True):
-        press_operator("÷")
+        operator_pressed("÷")
 
 
 # ============================================================
-# TASTEN - ZEILE 2
+# TASTEN 2
 # ============================================================
 
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if st.button("7", key="7", use_container_width=True):
-        press_number("7")
+    if st.button("7", key="seven", use_container_width=True):
+        number_pressed("7")
 
 with c2:
-    if st.button("8", key="8", use_container_width=True):
-        press_number("8")
+    if st.button("8", key="eight", use_container_width=True):
+        number_pressed("8")
 
 with c3:
-    if st.button("9", key="9", use_container_width=True):
-        press_number("9")
+    if st.button("9", key="nine", use_container_width=True):
+        number_pressed("9")
 
 with c4:
     if st.button("×", key="multiply", type="primary", use_container_width=True):
-        press_operator("×")
+        operator_pressed("×")
 
 
 # ============================================================
-# TASTEN - ZEILE 3
+# TASTEN 3
 # ============================================================
 
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if st.button("4", key="4", use_container_width=True):
-        press_number("4")
+    if st.button("4", key="four", use_container_width=True):
+        number_pressed("4")
 
 with c2:
-    if st.button("5", key="5", use_container_width=True):
-        press_number("5")
+    if st.button("5", key="five", use_container_width=True):
+        number_pressed("5")
 
 with c3:
-    if st.button("6", key="6", use_container_width=True):
-        press_number("6")
+    if st.button("6", key="six", use_container_width=True):
+        number_pressed("6")
 
 with c4:
-    if st.button("−", key="subtract", type="primary", use_container_width=True):
-        press_operator("−")
+    if st.button("−", key="minus", type="primary", use_container_width=True):
+        operator_pressed("−")
 
 
 # ============================================================
-# TASTEN - ZEILE 4
+# TASTEN 4
 # ============================================================
 
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if st.button("1", key="1", use_container_width=True):
-        press_number("1")
+    if st.button("1", key="one", use_container_width=True):
+        number_pressed("1")
 
 with c2:
-    if st.button("2", key="2", use_container_width=True):
-        press_number("2")
+    if st.button("2", key="two", use_container_width=True):
+        number_pressed("2")
 
 with c3:
-    if st.button("3", key="3", use_container_width=True):
-        press_number("3")
+    if st.button("3", key="three", use_container_width=True):
+        number_pressed("3")
 
 with c4:
-    if st.button("+", key="add", type="primary", use_container_width=True):
-        press_operator("+")
+    if st.button("+", key="plus", type="primary", use_container_width=True):
+        operator_pressed("+")
 
 
 # ============================================================
-# TASTEN - ZEILE 5
+# TASTEN 5
 # ============================================================
 
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if st.button("0", key="0", use_container_width=True):
-        press_number("0")
+    if st.button("0", key="zero", use_container_width=True):
+        number_pressed("0")
 
 with c2:
-    if st.button(",", key="decimal", use_container_width=True):
-        press_decimal()
+    if st.button(",", key="comma", use_container_width=True):
+        decimal_pressed()
 
 with c3:
-    # Absichtlich leer
     pass
 
 with c4:
